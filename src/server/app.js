@@ -36,11 +36,51 @@ app.use(express.static(path.join(__dirname, '../client')));
 app.use('/api', resultRoutes);
 
 // SPA를 위한 catch-all 라우트
+// 수정 후
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/index.html'));
+   });
+   
+app.get('/analysis', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/analysis.html'));
+   });
+   
+   // 그 외 경로에 대한 처리
 app.get('*', (req, res) => {
- res.sendFile(path.join(__dirname, '../client/index.html'));
-});
+    res.redirect('/');
+   });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
  console.log(`Server running on port ${PORT}`);
 });
+
+// app.js의 MongoDB 연결 부분 수정
+try {
+    console.log('MongoDB 연결 시도 중...');
+    console.log('연결 URL:', 'mongodb://127.0.0.1:27017/sorting_system');
+    
+    await mongoose.connect('mongodb://127.0.0.1:27017/sorting_system', {
+      serverSelectionTimeoutMS: 5000
+    });
+    
+    console.log('MongoDB 연결 성공');
+    console.log('데이터베이스 이름:', mongoose.connection.name);
+    console.log('연결 상태:', mongoose.connection.readyState);
+    
+    mongoose.connection.on('error', err => {
+      console.error('MongoDB 연결 에러:', err);
+    });
+  
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB 연결이 끊어짐');
+    });
+  } catch (err) {
+    console.error('MongoDB 연결 실패:', err);
+    console.error('에러 세부 정보:', {
+      name: err.name,
+      message: err.message,
+      code: err.code
+    });
+    process.exit(1);
+  }
