@@ -1,24 +1,416 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>분류 시스템 - 분석</title>
-    <!-- React -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind -->
-    <script src="https://cdn.tailwindcss.com"></script>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>분류 시스템 - 분석</title>
+   <!-- React -->
+   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+   
+   <!-- Babel -->
+   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+   <!-- Chart.js 및 필요한 플러그인들 -->
+   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/luxon"></script>
+   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
+   
+   <!-- Tailwind -->
+   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
-    <div id="root"></div>
-    <script type="text/babel">
-        function AnalyticsPage() {
-            return (
+   <div id="root"></div>
+   <script type="text/babel">
+       function StatsCard({ title, value }) {
+           return (
+               <div className="bg-white p-6 rounded-lg shadow">
+                   <h3 className="text-lg font-semibold text-gray-700">{title}</h3>
+                   <p className="text-3xl font-bold mt-2">{value}</p>
+               </div>
+           );
+       }
+
+       function BarChart({ data }) {
+        const canvasRef = React.useRef(null);
+        const chartRef = React.useRef(null);
+
+        React.useEffect(() => {
+            if (chartRef.current) {
+                chartRef.current.destroy();
+            }
+
+        const ctx = canvasRef.current.getContext('2d');
+        
+        // 시간대별 데이터 집계
+        const hourlyData = data.reduce((acc, item) => {
+            const hour = new Date(item.timestamp).getHours();
+            if (!acc[hour]) {
+                acc[hour] = { A: 0, B: 0 };
+            }
+            if (item.classification === 'class_A') {
+                acc[hour].A++;
+            } else {
+                acc[hour].B++;
+            }
+            return acc;
+        }, {});
+
+        const hours = Array.from({ length: 24 }, (_, i) => i);
+        const classAData = hours.map(hour => hourlyData[hour]?.A || 0);
+        const classBData = hours.map(hour => hourlyData[hour]?.B || 0);
+
+        chartRef.current = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: hours.map(h => `${h}시`),
+                datasets: [
+                    {
+                        label: 'Class A',
+                        data: classAData,
+                        backgroundColor: 'rgba(147, 197, 253, 0.8)',
+                        borderColor: 'rgba(147, 197, 253, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Class B',
+                        data: classBData,
+                        backgroundColor: 'rgba(134, 239, 172, 0.8)',
+                        borderColor: 'rgba(134, 239, 172, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '시간대별 분류 현황'
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        title: {
+                            display: true,
+                            text: '시간'
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        title: {
+                            display: true,
+                            text: '처리 건수'
+                        }
+                    }
+                }
+            }
+        });
+
+        return () => {
+            if (chartRef.current) {
+                chartRef.current.destroy();
+            }
+        };
+    }, [data]);
+
+    return (
+        <div style={{ height: '300px', width: '100%' }}>
+            <canvas ref={canvasRef}></canvas>
+        </div>
+    );
+}
+
+// BoxPlotChart 컴포넌트 - 분류별 무게 분포
+function BoxPlotChart({ data }) {
+    const canvasRef = React.useRef(null);
+    const chartRef = React.useRef(null);
+
+    const calculateStats = (values) => {
+        if (values.length === 0) return { min: 0, q1: 0, median: 0, q3: 0, max: 0 };
+        
+        const sorted = values.sort((a, b) => a - b);
+        const min = sorted[0];
+        const max = sorted[sorted.length - 1];
+        const q1 = sorted[Math.floor(sorted.length * 0.25)];
+        const median = sorted[Math.floor(sorted.length * 0.5)];
+        const q3 = sorted[Math.floor(sorted.length * 0.75)];
+        
+        return { min, q1, median, q3, max };
+    };
+
+    React.useEffect(() => {
+        if (chartRef.current) {
+            chartRef.current.destroy();
+        }
+
+        const ctx = canvasRef.current.getContext('2d');
+        
+        const classAWeights = data
+            .filter(item => item.classification === 'class_A')
+            .map(item => item.weight);
+            
+        const classBWeights = data
+            .filter(item => item.classification === 'class_B')
+            .map(item => item.weight);
+
+        const statsA = calculateStats(classAWeights);
+        const statsB = calculateStats(classBWeights);
+
+        chartRef.current = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Class A', 'Class B'],
+                datasets: [{
+                    label: '범위',
+                    data: [
+                        [statsA.min, statsA.q1, statsA.median, statsA.q3, statsA.max],
+                        [statsB.min, statsB.q1, statsB.median, statsB.q3, statsB.max]
+                    ],
+                    backgroundColor: ['rgba(147, 197, 253, 0.8)', 'rgba(134, 239, 172, 0.8)']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '분류별 무게 분포'
+                    }
+                },
+                scales: {
+                    y: {
+                        title: {
+                            display: true,
+                            text: '무게(g)'
+                        }
+                    }
+                }
+            }
+        });
+
+        return () => {
+            if (chartRef.current) {
+                chartRef.current.destroy();
+            }
+        };
+    }, [data]);
+
+    return (
+        <div style={{ height: '300px', width: '100%' }}>
+            <canvas ref={canvasRef}></canvas>
+        </div>
+    );
+}
+
+       function PieChart({ data }) {
+           const canvasRef = React.useRef(null);
+           const chartRef = React.useRef(null);
+
+           React.useEffect(() => {
+               if (chartRef.current) {
+                   chartRef.current.destroy();
+               }
+
+               const ctx = canvasRef.current.getContext('2d');
+               
+               chartRef.current = new Chart(ctx, {
+                   type: 'pie',
+                   data: {
+                       labels: ['Class A', 'Class B'],
+                       datasets: [{
+                           data: [data.classACounts, data.classBCounts],
+                           backgroundColor: [
+                               'rgba(147, 197, 253, 0.8)',
+                               'rgba(134, 239, 172, 0.8)'
+                           ],
+                           borderColor: [
+                               'rgba(147, 197, 253, 1)',
+                               'rgba(134, 239, 172, 1)'
+                           ],
+                           borderWidth: 1
+                       }]
+                   },
+                   options: {
+                       responsive: true,
+                       maintainAspectRatio: false,
+                       plugins: {
+                           legend: {
+                               position: 'top',
+                           },
+                           title: {
+                               display: true,
+                               text: '분류 비율'
+                           }
+                       }
+                   }
+               });
+
+               return () => {
+                   if (chartRef.current) {
+                       chartRef.current.destroy();
+                   }
+               };
+           }, [data]);
+
+           return (
+               <div style={{ height: '300px', width: '100%' }}>
+                   <canvas ref={canvasRef}></canvas>
+               </div>
+           );
+       }
+
+       function LineChart({ data }) {
+           const canvasRef = React.useRef(null);
+           const chartRef = React.useRef(null);
+
+           React.useEffect(() => {
+               if (chartRef.current) {
+                   chartRef.current.destroy();
+               }
+
+               const ctx = canvasRef.current.getContext('2d');
+               
+               // 데이터 가공
+               const processedData = data
+                   .filter(item => item.weight) // null 또는 undefined 무게 필터링
+                   .map(item => ({
+                       x: new Date(item.timestamp),
+                       y: Number(item.weight)
+                   }))
+                   .sort((a, b) => a.x - b.x);
+
+               chartRef.current = new Chart(ctx, {
+                   type: 'line',
+                   data: {
+                       datasets: [{
+                           label: '무게(g)',
+                           data: processedData,
+                           borderColor: 'rgb(75, 192, 192)',
+                           tension: 0.1,
+                           fill: false
+                       }]
+                   },
+                   options: {
+                       responsive: true,
+                       maintainAspectRatio: false,
+                       plugins: {
+                           title: {
+                               display: true,
+                               text: '시간별 무게 변화'
+                           },
+                           tooltip: {
+                               mode: 'index',
+                               intersect: false,
+                           }
+                       },
+                       scales: {
+                           x: {
+                               type: 'time',
+                               display: true,
+                               title: {
+                                   display: true,
+                                   text: '시간'
+                               },
+                               time: {
+                                   unit: 'hour'
+                               }
+                           },
+                           y: {
+                               display: true,
+                               title: {
+                                   display: true,
+                                   text: '무게(g)'
+                               }
+                           }
+                       }
+                   }
+               });
+
+               return () => {
+                   if (chartRef.current) {
+                       chartRef.current.destroy();
+                   }
+               };
+           }, [data]);
+
+           return (
+               <div style={{ height: '300px', width: '100%' }}>
+                   <canvas ref={canvasRef}></canvas>
+               </div>
+           );
+       }
+
+       function AnalyticsPage() {
+           const [results, setResults] = React.useState([]);
+           const [loading, setLoading] = React.useState(true);
+           const [error, setError] = React.useState(null);
+
+           React.useEffect(() => {
+               const fetchResults = async () => {
+                   try {
+                       const response = await fetch('http://localhost:5000/api/results');
+                       const data = await response.json();
+                       console.log('Fetched data:', data);
+                       setResults(data);
+                   } catch (error) {
+                       console.error('Error:', error);
+                       setError('데이터를 불러오는데 실패했습니다');
+                   } finally {
+                       setLoading(false);
+                   }
+               };
+
+               fetchResults();
+           }, []);
+
+           if (loading) {
+               return (
+                   <div className="min-h-screen bg-gray-50 py-8">
+                       <div className="max-w-7xl mx-auto px-4">
+                           <div className="flex justify-between items-center mb-8">
+                               <h1 className="text-3xl font-bold text-gray-900">분석 페이지</h1>
+                               <a href="index.html" className="text-blue-600 hover:text-blue-800">
+                                   모니터링으로 돌아가기
+                               </a>
+                           </div>
+                           <div className="bg-white rounded-lg shadow p-6">
+                               <p>데이터를 불러오는 중...</p>
+                           </div>
+                       </div>
+                   </div>
+               );
+           }
+
+           if (error) {
+               return (
+                   <div className="min-h-screen bg-gray-50 py-8">
+                       <div className="max-w-7xl mx-auto px-4">
+                           <div className="flex justify-between items-center mb-8">
+                               <h1 className="text-3xl font-bold text-gray-900">분석 페이지</h1>
+                               <a href="index.html" className="text-blue-600 hover:text-blue-800">
+                                   모니터링으로 돌아가기
+                               </a>
+                           </div>
+                           <div className="bg-white rounded-lg shadow p-6">
+                               <p className="text-red-600">{error}</p>
+                           </div>
+                       </div>
+                   </div>
+               );
+           }
+
+           const stats = {
+               totalItems: results.length,
+               avgWeight: Math.round(results.reduce((sum, item) => sum + (item.weight || 0), 0) / results.length),
+               classACounts: results.filter(item => item.classification === 'class_A').length,
+               classBCounts: results.filter(item => item.classification === 'class_B').length
+           };
+
+           return (
                 <div className="min-h-screen bg-gray-50 py-8">
                     <div className="max-w-7xl mx-auto px-4">
                         <div className="flex justify-between items-center mb-8">
@@ -27,17 +419,53 @@
                                 모니터링으로 돌아가기
                             </a>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <p>분석 페이지 테스트</p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <StatsCard title="총 처리 항목" value={stats.totalItems} />
+                            <StatsCard title="평균 무게" value={`${stats.avgWeight}g`} />
+                            <StatsCard title="Class A" value={`${stats.classACounts} (${stats.classAAvgWeight}g)`} />
+                            <StatsCard title="Class B" value={`${stats.classBCounts} (${stats.classBAvgWeight}g)`} />
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4">분류 비율</h3>
+                                <div className="w-full">
+                                    <PieChart data={stats} />
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4">무게 추이</h3>
+                                <div className="w-full">
+                                <LineChart data={results} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4">시간대별 분류 현황</h3>
+                                <div className="w-full">
+                                    <BarChart data={results} />
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4">분류별 무게 분포</h3>
+                                <div className="w-full">
+                                    <BoxPlotChart data={results} />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             );
-        }
+       }
 
-        const container = document.getElementById('root');
-        const root = ReactDOM.createRoot(container);
-        root.render(<AnalyticsPage />);
-    </script>
+       const container = document.getElementById('root');
+       const root = ReactDOM.createRoot(container);
+       root.render(<AnalyticsPage />);
+   </script>
 </body>
 </html>
