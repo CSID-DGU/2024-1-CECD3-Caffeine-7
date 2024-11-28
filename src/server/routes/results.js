@@ -77,8 +77,7 @@ router.get('/results', async (req, res) => {
   try {
     console.log('결과 데이터 조회 요청 수신');
     const results = await Result.find()
-      .sort({ timestamp: -1 })
-      .limit(50);
+      .sort({ timestamp: -1 });
     
     console.log(`${results.length}개의 결과 데이터 조회됨`);
     res.json(results);
