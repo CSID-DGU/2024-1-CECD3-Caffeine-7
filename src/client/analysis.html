@@ -46,19 +46,18 @@
         const hourlyData = data.reduce((acc, item) => {
             const hour = new Date(item.timestamp).getHours();
             if (!acc[hour]) {
-                acc[hour] = { A: 0, B: 0 };
+                acc[hour] = { trash: 0, plastic: 0, can: 0, glass: 0 };
             }
-            if (item.classification === 'class_A') {
-                acc[hour].A++;
-            } else {
-                acc[hour].B++;
-            }
+            acc[hour][item.classification]++;
             return acc;
         }, {});
 
         const hours = Array.from({ length: 24 }, (_, i) => i);
-        const classAData = hours.map(hour => hourlyData[hour]?.A || 0);
-        const classBData = hours.map(hour => hourlyData[hour]?.B || 0);
+        const classtrashData = hours.map(hour => hourlyData[hour]?.trash || 0);
+        const classcanData = hours.map(hour => hourlyData[hour]?.can || 0);
+        const classglassData = hours.map(hour => hourlyData[hour]?.glass || 0);
+        const classplasticData = hours.map(hour => hourlyData[hour]?.plastic || 0);
+        
 
         chartRef.current = new Chart(ctx, {
             type: 'bar',
@@ -66,17 +65,31 @@
                 labels: hours.map(h => `${h}시`),
                 datasets: [
                     {
-                        label: 'Class A',
-                        data: classAData,
-                        backgroundColor: 'rgba(147, 197, 253, 0.8)',
-                        borderColor: 'rgba(147, 197, 253, 1)',
+                        label: 'trash',
+                        data: classtrashData,
+                        backgroundColor: 'rgba(255, 152, 0, 0.8)',
+                        borderColor: 'rgba(255, 152, 0, 0.8)',
                         borderWidth: 1
                     },
                     {
-                        label: 'Class B',
-                        data: classBData,
-                        backgroundColor: 'rgba(134, 239, 172, 0.8)',
-                        borderColor: 'rgba(134, 239, 172, 1)',
+                        label: 'plastic',
+                        data: classplasticData,
+                        backgroundColor: 'rgba(156, 39, 176, 0.8)',
+                        borderColor: 'rgba(156, 39, 176, 0.8)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'can',
+                        data: classcanData,
+                        backgroundColor: 'rgba(33, 150, 243, 0.8)',
+                        borderColor: 'rgba(33, 150, 243, 0.8)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'glass',
+                        data: classglassData,
+                        backgroundColor: 'rgba(76, 175, 80, 0.8)',
+                        borderColor: 'rgba(76, 175, 80, 0.8)',
                         borderWidth: 1
                     }
                 ]
@@ -122,89 +135,113 @@
         </div>
     );
 }
+        //boxplot
+        function BoxPlotChart({ data }) {
+        const canvasRef = React.useRef(null);
+        const chartRef = React.useRef(null);
 
-// BoxPlotChart 컴포넌트 - 분류별 무게 분포
-function BoxPlotChart({ data }) {
-    const canvasRef = React.useRef(null);
-    const chartRef = React.useRef(null);
-
-    const calculateStats = (values) => {
-        if (values.length === 0) return { min: 0, q1: 0, median: 0, q3: 0, max: 0 };
-        
-        const sorted = values.sort((a, b) => a - b);
-        const min = sorted[0];
-        const max = sorted[sorted.length - 1];
-        const q1 = sorted[Math.floor(sorted.length * 0.25)];
-        const median = sorted[Math.floor(sorted.length * 0.5)];
-        const q3 = sorted[Math.floor(sorted.length * 0.75)];
-        
-        return { min, q1, median, q3, max };
-    };
-
-    React.useEffect(() => {
-        if (chartRef.current) {
-            chartRef.current.destroy();
-        }
-
-        const ctx = canvasRef.current.getContext('2d');
-        
-        const classAWeights = data
-            .filter(item => item.classification === 'class_A')
-            .map(item => item.weight);
-            
-        const classBWeights = data
-            .filter(item => item.classification === 'class_B')
-            .map(item => item.weight);
-
-        const statsA = calculateStats(classAWeights);
-        const statsB = calculateStats(classBWeights);
-
-        chartRef.current = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Class A', 'Class B'],
-                datasets: [{
-                    label: '범위',
-                    data: [
-                        [statsA.min, statsA.q1, statsA.median, statsA.q3, statsA.max],
-                        [statsB.min, statsB.q1, statsB.median, statsB.q3, statsB.max]
-                    ],
-                    backgroundColor: ['rgba(147, 197, 253, 0.8)', 'rgba(134, 239, 172, 0.8)']
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: '분류별 무게 분포'
-                    }
-                },
-                scales: {
-                    y: {
-                        title: {
-                            display: true,
-                            text: '무게(g)'
-                        }
-                    }
-                }
-            }
-        });
-
-        return () => {
+        React.useEffect(() => {
             if (chartRef.current) {
                 chartRef.current.destroy();
             }
-        };
-    }, [data]);
 
-    return (
-        <div style={{ height: '300px', width: '100%' }}>
-            <canvas ref={canvasRef}></canvas>
-        </div>
-    );
-}
+            const ctx = canvasRef.current.getContext('2d');
+
+            // 데이터 필터링
+            const classtrashWeights = data
+                .filter(item => item.classification === 'trash' && item.weight != null)
+                .map(item => ({ x: 'Trash', y: parseFloat(item.weight) }));
+
+            const classplasticWeights = data
+                .filter(item => item.classification === 'plastic' && item.weight != null)
+                .map(item => ({ x: 'Plastic', y: parseFloat(item.weight) }));
+
+            const classcanWeights = data
+                .filter(item => item.classification === 'can' && item.weight != null)
+                .map(item => ({ x: 'Can', y: parseFloat(item.weight) }));
+
+            const classglassWeights = data
+                .filter(item => item.classification === 'glass' && item.weight != null)
+                .map(item => ({ x: 'Glass', y: parseFloat(item.weight) }));
+
+            chartRef.current = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Trash',
+                            data: classtrashWeights,
+                            backgroundColor: 'rgba(255, 152, 0, 0.8)',
+                            pointRadius: 6
+                        },
+                        {
+                            label: 'Plastic',
+                            data: classplasticWeights,
+                            backgroundColor: 'rgba(156, 39, 176, 0.8)',
+                            pointRadius: 6
+                        },
+                        {
+                            label: 'Can',
+                            data: classcanWeights,
+                            backgroundColor: 'rgba(33, 150, 243, 0.8)',
+                            pointRadius: 6
+                        },
+                        {
+                            label: 'Glass',
+                            data: classglassWeights,
+                            backgroundColor: 'rgba(76, 175, 80, 0.8)',
+                            pointRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '분류별 무게 분포'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '무게(g)'
+                            }
+                        },
+                        x: {
+                            type: 'category',
+                            title: {
+                                display: true,
+                                text: '분류'
+                            },
+                            offset : true
+                        }
+                    },
+                    layout: {
+                    padding: {
+                        left: 20,
+                        right: 20
+                    }
+                }
+                }
+            });
+
+            return () => {
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+            };
+        }, [data]);
+
+        return (
+            <div style={{ height: '300px', width: '100%' }}>
+                <canvas ref={canvasRef}></canvas>
+            </div>
+        );
+    }
 
        function PieChart({ data }) {
            const canvasRef = React.useRef(null);
@@ -220,16 +257,20 @@ function BoxPlotChart({ data }) {
                chartRef.current = new Chart(ctx, {
                    type: 'pie',
                    data: {
-                       labels: ['Class A', 'Class B'],
+                       labels: ['Trash', 'Plastic','Can','Glass'],
                        datasets: [{
-                           data: [data.classACounts, data.classBCounts],
+                           data: [data.classtrashCounts, data.classplasticCounts, data.classcanCounts,data.classglassCounts],
                            backgroundColor: [
-                               'rgba(147, 197, 253, 0.8)',
-                               'rgba(134, 239, 172, 0.8)'
+                               'rgba(255, 152, 0, 0.8)',
+                               'rgba(156, 39, 176, 0.8)',
+                               'rgba(33, 150, 243, 0.8)', 
+                               'rgba(76, 175, 80, 0.8)'
                            ],
                            borderColor: [
-                               'rgba(147, 197, 253, 1)',
-                               'rgba(134, 239, 172, 1)'
+                               'rgba(255, 152, 0, 0.8)',
+                               'rgba(156, 39, 176, 0.8)',
+                               'rgba(33, 150, 243, 0.8)', 
+                               'rgba(76, 175, 80, 0.8)'
                            ],
                            borderWidth: 1
                        }]
@@ -374,7 +415,10 @@ function BoxPlotChart({ data }) {
                            <div className="flex justify-between items-center mb-8">
                                <h1 className="text-3xl font-bold text-gray-900">분석 페이지</h1>
                                <a href="index.html" className="text-blue-600 hover:text-blue-800">
-                                   모니터링으로 돌아가기
+                                   모니터링
+                               </a>
+                               <a href="realtime.html" className="text-blue-600 hover:text-blue-800">
+                                   실시간 환경 영향
                                </a>
                            </div>
                            <div className="bg-white rounded-lg shadow p-6">
@@ -392,7 +436,10 @@ function BoxPlotChart({ data }) {
                            <div className="flex justify-between items-center mb-8">
                                <h1 className="text-3xl font-bold text-gray-900">분석 페이지</h1>
                                <a href="index.html" className="text-blue-600 hover:text-blue-800">
-                                   모니터링으로 돌아가기
+                                   분석 모니터링
+                               </a>
+                               <a href="realtime.html" className="text-blue-600 hover:text-blue-800">
+                                   실시간 환경 영향
                                </a>
                            </div>
                            <div className="bg-white rounded-lg shadow p-6">
@@ -406,8 +453,14 @@ function BoxPlotChart({ data }) {
            const stats = {
                totalItems: results.length,
                avgWeight: Math.round(results.reduce((sum, item) => sum + (item.weight || 0), 0) / results.length),
-               classACounts: results.filter(item => item.classification === 'class_A').length,
-               classBCounts: results.filter(item => item.classification === 'class_B').length
+               classtrashCounts: results.filter(item => item.classification === 'trash').length,
+               classplasticCounts: results.filter(item => item.classification === 'plastic').length,
+               classcanCounts: results.filter(item => item.classification === 'can').length,
+               classglassCounts: results.filter(item => item.classification === 'glass').length,
+               classtrashWeights: Math.round(results.filter(item => item.classification === 'trash').reduce((sum, item) => sum + (item.weight || 0), 0)),
+               classplasticWeights: Math.round(results.filter(item => item.classification === 'plastic').reduce((sum, item) => sum + (item.weight || 0), 0)),
+               classcanWeights: Math.round(results.filter(item => item.classification === 'can').reduce((sum, item) => sum + (item.weight || 0), 0)),
+               classglassWeights: Math.round(results.filter(item => item.classification === 'glass').reduce((sum, item) => sum + (item.weight || 0), 0))
            };
 
            return (
@@ -415,16 +468,23 @@ function BoxPlotChart({ data }) {
                     <div className="max-w-7xl mx-auto px-4">
                         <div className="flex justify-between items-center mb-8">
                             <h1 className="text-3xl font-bold text-gray-900">분석 페이지</h1>
-                            <a href="index.html" className="text-blue-600 hover:text-blue-800">
-                                모니터링으로 돌아가기
-                            </a>
+                            <div className="flex gap-4">
+                                <a href="index.html" className="text-blue-600 hover:text-blue-800">
+                                    분석 모니터링
+                                </a>
+                                <a href="realtime.html" className="text-blue-600 hover:text-blue-800">
+                                    실시간 환경 영향
+                                </a>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                             <StatsCard title="총 처리 항목" value={stats.totalItems} />
                             <StatsCard title="평균 무게" value={`${stats.avgWeight}g`} />
-                            <StatsCard title="Class A" value={`${stats.classACounts} (${stats.classAAvgWeight}g)`} />
-                            <StatsCard title="Class B" value={`${stats.classBCounts} (${stats.classBAvgWeight}g)`} />
+                            <StatsCard title="Trash" value={`${stats.classtrashWeights}g`} />
+                            <StatsCard title="Plastic" value={`${stats.classplasticWeights}g`} />
+                            <StatsCard title="Can" value={`${stats.classcanWeights}g`} />
+                            <StatsCard title="Glass" value={`${stats.classglassWeights}g`} />
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
