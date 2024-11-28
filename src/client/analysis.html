@@ -303,6 +303,112 @@
                </div>
            );
        }
+       const HorizontalBarChart = ({ stats }) => {
+            const canvasRef = React.useRef(null);
+            const chartRef = React.useRef(null);
+
+            React.useEffect(() => {
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                const data = [
+                    stats.classtrashWeights || 0,
+                    stats.classplasticWeights || 0,
+                    stats.classcanWeights || 0,
+                    stats.classglassWeights || 0
+                ];
+                
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Trash', 'Plastic', 'Can', 'Glass'],
+                        datasets: [{
+                            data: data,
+                            backgroundColor: [
+                                'rgba(255, 152, 0, 0.8)',  // Trash - Orange
+                                'rgba(156, 39, 176, 0.8)',  // Plastic - Purple
+                                'rgba(33, 150, 243, 0.8)',  // Can - Blue
+                                'rgba(76, 175, 80, 0.8)'    // Glass - Green
+                            ],
+                            borderColor: [
+                                'rgba(255, 152, 0, 1)',
+                                'rgba(156, 39, 176, 1)',
+                                'rgba(33, 150, 243, 1)',
+                                'rgba(76, 175, 80, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'x',  // 이 옵션으로 수평 막대로 변경
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        barThickness : 40,
+                        layout: {
+                            padding: {
+                                right: 10
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false  // 범례 숨김
+                            },
+                            title: {
+                                display: true,
+                                text: '분류별 총량',
+                                font: {
+                                    size: 16,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: '분류',
+                                    font: {
+                                        weight: 'bold'
+                                    }
+                                },
+                                barThickness: 10,
+                                ticks: {
+                                    padding: 5
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: '무게 (g)',
+                                    font: {
+                                        weight: 'bold'
+                                    }
+                                },
+                                ticks : {
+                                    callback: function(value) {
+                                        return value + 'g';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [stats]);  // stats를 의존성 배열에 추가
+
+            return (
+                <div className="w-full h-96 p-4 bg-white rounded-lg shadow flex-grow">
+                    <canvas ref={canvasRef}></canvas>
+                </div>
+            );
+        };
 
        function LineChart({ data }) {
            const canvasRef = React.useRef(null);
@@ -479,12 +585,50 @@
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <StatsCard title="총 처리 항목" value={stats.totalItems} />
-                            <StatsCard title="평균 무게" value={`${stats.avgWeight}g`} />
-                            <StatsCard title="Trash" value={`${stats.classtrashWeights}g`} />
-                            <StatsCard title="Plastic" value={`${stats.classplasticWeights}g`} />
-                            <StatsCard title="Can" value={`${stats.classcanWeights}g`} />
-                            <StatsCard title="Glass" value={`${stats.classglassWeights}g`} />
+                            {/* 주요 통계 */}
+                            <div className="col-span-1 md:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <StatsCard 
+                                    title="총 처리 항목" 
+                                    value={stats.totalItems} 
+                                    className="bg-blue-50"
+                                />
+                                <StatsCard 
+                                    title="평균 무게" 
+                                    value={`${stats.avgWeight}g`} 
+                                    className="bg-green-50"
+                                />
+                            </div>
+                            
+                            {/* 분류별 통계 */}
+                            <StatsCard 
+                                title="Trash" 
+                                value={`${stats.classtrashWeights}g`}
+                                className="bg-gray-50"
+                            />
+                            <StatsCard 
+                                title="Plastic" 
+                                value={`${stats.classplasticWeights}g`}
+                                className="bg-yellow-50"
+                            />
+                            <StatsCard 
+                                title="Can" 
+                                value={`${stats.classcanWeights}g`}
+                                className="bg-orange-50"
+                            />
+                            <StatsCard 
+                                title="Glass" 
+                                value={`${stats.classglassWeights}g`}
+                                className="bg-purple-50"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6 mb-6">
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4">총량</h3>
+                                <div className="w-full h-96">
+                                    <HorizontalBarChart stats = {stats}/>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
