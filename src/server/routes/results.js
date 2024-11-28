@@ -1,25 +1,21 @@
+// routes/results.js
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
+import { GridFSBucket } from 'mongodb';
+import mongoose from 'mongoose';
 import Result from '../models/Result.js';
 
 const router = express.Router();
 let clients = [];
+let bucket;
 
-// 파일 업로드 설정
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    console.log('파일 업로드 요청:', file.originalname);
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    const filename = `${Date.now()}${path.extname(file.originalname)}`;
-    console.log('생성된 파일명:', filename);
-    cb(null, filename);
-  }
+// GridFS 버킷 초기화
+mongoose.connection.once('open', () => {
+  bucket = new GridFSBucket(mongoose.connection.db, {
+    bucketName: 'images'
+  });
 });
 
-const upload = multer({ storage });
 
 // SSE 엔드포인트
 router.get('/events', (req, res) => {
@@ -46,32 +42,32 @@ const sendEventsToAll = (newResult) => {
   });
 };
 
-// 결과 생성 엔드포인트
-router.post('/results', upload.single('image'), async (req, res) => {
-  try {
-    console.log('새 결과 데이터 수신:', req.body);
-    const { classification } = req.body;
-    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
-    if (req.file) {
-      console.log('업로드된 이미지 경로:', imagePath);
+router.get('/images/:id', async (req, res) => {
+  try {
+    const fileId = new mongoose.Types.ObjectId(req.params.id);
+    
+    // GridFS에서 파일 존재 여부 먼저 확인
+    const files = await mongoose.connection.db.collection('fs.files').findOne({ _id: fileId });
+    
+    if (!files) {
+      return res.status(404).json({ error: '이미지 파일을 찾을 수 없습니다.' });
     }
 
-    const result = new Result({
-      classification,
-      imagePath,
-      timestamp: new Date(),
-      weight: req.body.weight || 0
+    const bucket = new GridFSBucket(mongoose.connection.db, {
+      bucketName: 'fs'
+    });
+    
+    const downloadStream = bucket.openDownloadStream(fileId);
+    downloadStream.on('error', (error) => {
+      console.error('이미지 스트리밍 오류:', error);
+      res.status(404).json({ error: '이미지를 찾을 수 없습니다.' });
     });
 
-    console.log('저장할 결과 데이터:', result);
-    await result.save();
-    console.log('결과 저장 완료');
-
-    sendEventsToAll(result);
-    res.json(result);
+    res.set('Content-Type', files.contentType || 'image/jpeg');
+    downloadStream.pipe(res);
   } catch (error) {
-    console.error('결과 저장 중 오류 발생:', error);
+    console.error('이미지 조회 오류:', error);
     res.status(500).json({ error: error.message });
   }
 });
