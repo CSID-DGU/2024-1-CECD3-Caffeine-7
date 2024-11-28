@@ -6,32 +6,17 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import resultRoutes from './routes/results.js';
 import fs from 'fs';
+import { GridFSBucket } from 'mongodb';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-const uploadsDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadsDir)){
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('uploads 디렉토리 생성됨');
-}
 
-console.log('Starting server...');
-
-try {
- console.log('Connecting to MongoDB...');
- await mongoose.connect('mongodb://127.0.0.1:27017/sorting_system');
- console.log('MongoDB Connected');
-} catch (err) {
- console.error('MongoDB connection error:', err);
- process.exit(1);
-}
 
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 app.use(express.static(path.join(__dirname, '../client')));
 app.use('/api', resultRoutes);
 
@@ -44,6 +29,10 @@ app.get('/', (req, res) => {
 app.get('/analysis', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/analysis.html'));
    });
+
+app.get('/realtime', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/realtime.html'));
+});
    
    // 그 외 경로에 대한 처리
 app.get('*', (req, res) => {
@@ -57,12 +46,19 @@ app.listen(PORT, () => {
 
 // app.js의 MongoDB 연결 부분 수정
 try {
-    console.log('MongoDB 연결 시도 중...');
-    console.log('연결 URL:', 'mongodb://127.0.0.1:27017/sorting_system');
+    console.log('MongoDB atlas 연결 시도 중...');
+    console.log('연결 URL:', 'Altas -> sorting_system');
     
-    await mongoose.connect('mongodb://127.0.0.1:27017/sorting_system', {
-      serverSelectionTimeoutMS: 5000
+    await mongoose.connect("mongodb+srv://Caffeine:caffeine@cluster0.pikje.mongodb.net/sorting_system?retryWrites=true&w=majority&appName=Cluster0", {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
     });
+
+    const bucket = new GridFSBucket(mongoose.connection.db, {
+      bucketName: 'images'
+    });
+
+    console.log('GridFS bucket initialized');
     
     console.log('MongoDB 연결 성공');
     console.log('데이터베이스 이름:', mongoose.connection.name);
