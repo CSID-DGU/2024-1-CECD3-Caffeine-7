@@ -13,17 +13,31 @@
     
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        window.env = {
+            BASE_URL: 'http://caffeine.us-east-1.elasticbeanstalk.com',
+            API_BASE_URL: 'http://caffeine.us-east-1.elasticbeanstalk.com',
+            PAGE_LIMIT: 50
+        };
+    </script>
+
+    
 </head>
 <body>
     <div id="root"></div>
     <script type="text/babel">
+        // dotenv.config();
+        // const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/';
+        // console.log(BASE_URL)
+
         function MonitoringPage() {
             const [results, setResults] = React.useState([]);
             const [searchTerm, setSearchTerm] = React.useState('');
 
             React.useEffect(() => {
                 fetchResults();
-                const eventSource = new EventSource('http://localhost:5000/api/events');
+                const eventSource = new EventSource('/api/events');
                 
                 eventSource.onmessage = (event) => {
                     const newResult = JSON.parse(event.data);
@@ -35,7 +49,7 @@
 
             const fetchResults = async () => {
                 try {
-                    const response = await fetch('http://localhost:5000/api/results');
+                    const response = await fetch('api/results');
                     const data = await response.json();
                     setResults(data);
                 } catch (error) {
@@ -49,8 +63,8 @@
                         <div className="flex justify-between items-center mb-8">
                             <h1 className="text-3xl font-bold text-gray-900">분류 시스템</h1>
                             <div className="flex gap-4">
-                                <a href="analysis.html" className="text-blue-600 hover:text-blue-800">분석 대시보드</a>
-                                <a href="realtime.html" className="text-blue-600 hover:text-blue-800">실시간 환경 영향</a>
+                                <a href="/analysis" className="text-blue-600 hover:text-blue-800">분석 대시보드</a>
+                                <a href="/realtime" className="text-blue-600 hover:text-blue-800">실시간 환경 영향</a>
                             </div>
                         </div>
 
@@ -128,7 +142,7 @@
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         {result.image_id && (
                                                             <img
-                                                                src={`http://localhost:5000/api/images/${result.image_id}`}
+                                                                src={`api/images/${result.image_id}`}
                                                                 alt="Classified item"
                                                                 className="h-16 w-16 object-cover rounded"
                                                                 onError = {(e) => {

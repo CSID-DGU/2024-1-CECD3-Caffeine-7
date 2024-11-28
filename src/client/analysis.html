@@ -18,10 +18,19 @@
    
    <!-- Tailwind -->
    <script src="https://cdn.tailwindcss.com"></script>
+
+   <script>
+        window.env = {
+            BASE_URL: 'http://caffeine.us-east-1.elasticbeanstalk.com',
+            API_BASE_URL: 'http://caffeine.us-east-1.elasticbeanstalk.com',
+            PAGE_LIMIT: 50
+        };
+    </script>
 </head>
 <body>
    <div id="root"></div>
    <script type="text/babel">
+
        function StatsCard({ title, value }) {
            return (
                <div className="bg-white p-6 rounded-lg shadow">
@@ -499,7 +508,7 @@
            React.useEffect(() => {
                const fetchResults = async () => {
                    try {
-                       const response = await fetch('http://localhost:5000/api/results');
+                       const response = await fetch(`api/results`);
                        const data = await response.json();
                        console.log('Fetched data:', data);
                        setResults(data);
