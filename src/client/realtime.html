@@ -14,6 +14,9 @@
     <script type="text/babel">
         function RealtimeImpactPage() {
             const [latestResult, setLatestResult] = React.useState(null);
+            const [lastUpdateTime, setLastUpdateTime] = React.useState(null);
+            const [refreshInterval, setRefreshInterval] = React.useState(10); // 기본값 30초
+            const [isAutoRefresh, setIsAutoRefresh] = React.useState(true);
 
             React.useEffect(() => {
                 fetchInitialData();
@@ -22,10 +25,25 @@
                 eventSource.onmessage = (event) => {
                     const newData = JSON.parse(event.data);
                     setLatestResult(newData);
+                    setLastUpdateTime(new Date());
+                    window.location.reload();
                 };
 
-                return () => eventSource.close();
-            }, []);
+                // 주기적 새로고침 설정
+                let intervalId;
+                if (isAutoRefresh) {
+                    intervalId = setInterval(() => {
+                        window.location.reload();
+                    }, refreshInterval * 1000);
+                }
+
+                return () => {
+                    eventSource.close();
+                    if (intervalId) {
+                        clearInterval(intervalId);
+                    }
+                };
+            }, [refreshInterval, isAutoRefresh]);
 
             const fetchInitialData = async () => {
                 try {
@@ -33,6 +51,7 @@
                     const data = await response.json();
                     if (data.length > 0) {
                         setLatestResult(data[0]);
+                        setLastUpdateTime(new Date());
                     }
                 } catch (error) {
                     console.error('Failed to fetch data:', error);
@@ -50,10 +69,14 @@
 
                 const impact = factors[type] || factors['test data'];
                 return {
-                    //탄소 계산식
                     co2: (weight * impact.co2).toFixed(1),
                     trees: (weight * impact.co2 * impact.trees).toFixed(2)
                 };
+            };
+
+            const handleRefreshIntervalChange = (e) => {
+                const value = parseInt(e.target.value);
+                setRefreshInterval(value);
             };
 
             if (!latestResult) {
@@ -66,10 +89,28 @@
                 <div className="min-h-screen bg-gray-50 py-12">
                     <div className="max-w-7xl mx-auto px-4">
                         <div className="flex justify-between items-center mb-8">
-                            <h1 className="text-3xl font-bold text-gray-900">실시간 환경 영향</h1>
+                            <div className="flex flex-col">
+                                <h1 className="text-3xl font-bold text-gray-900">실시간 환경 영향</h1>
+                                <div className="flex items-center gap-4 mt-2">
+                                    {lastUpdateTime && (
+                                        <p className="text-sm text-gray-500">
+                                            마지막 업데이트: {lastUpdateTime.toLocaleString('ko-KR')}
+                                        </p>
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-sm text-gray-600">자동 새로고침:</label>
+                                        <input
+                                            type="checkbox"
+                                            checked={isAutoRefresh}
+                                            onChange={(e) => setIsAutoRefresh(e.target.checked)}
+                                            className="text-blue-600 rounded"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                             <div className="flex gap-4">
                                 <a href="/" className="text-blue-600 hover:text-blue-800">분석 모니터링</a>
-                                <a href="analysis.html" className="text-blue-600 hover:text-blue-800">분석 대시보드</a>
+                                <a href="/analysis" className="text-blue-600 hover:text-blue-800">분석 대시보드</a>
                             </div>
                         </div>
 
@@ -131,7 +172,7 @@
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-lg shadow p-6">
+                        <div className="mt-8 bg-white rounded-lg shadow p-6">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">분류 이미지</h3>
                             <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden bg-gray-100">
                                 {latestResult.image_id ? (
