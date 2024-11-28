@@ -41,18 +41,18 @@
 
             const calculateImpact = (weight, type) => {
                 const factors = {
-                    'trash': { co2: 0.8, trees: 0.12 },
-                    'can': { co2: 1.2, trees: 0.18 },
+                    'trash': { co2: 0.55, trees: 0.5573 },
+                    'can': { co2: 0.45, trees: 0.18 },
                     'glass': { co2: 1.5, trees: 0.22 },
-                    'plastic': { co2: 1.0, trees: 0.15 },
+                    'plastic': { co2: 6.685, trees: 0.15 },
                     'test data': { co2: 1.0, trees: 0.15 }
                 };
 
                 const impact = factors[type] || factors['test data'];
                 return {
                     //탄소 계산식
-                    co2: (weight * 0.001 * impact.co2).toFixed(1),
-                    trees: (weight * impact.trees).toFixed(2)
+                    co2: (weight * impact.co2).toFixed(1),
+                    trees: (weight * impact.co2 * impact.trees).toFixed(2)
                 };
             };
 
@@ -83,7 +83,7 @@
                                 </div>
                                 <div className="p-6">
                                     <div className="text-5xl font-bold text-green-600">
-                                        {impact.trees}<span className="text-2xl ml-2">그루</span>
+                                        {impact.trees}<span className="text-2xl ml-2">그루(g)</span>
                                     </div>
                                 </div>
                             </div>
@@ -97,7 +97,7 @@
                                 </div>
                                 <div className="p-6">
                                     <div className="text-5xl font-bold text-blue-600">
-                                        {impact.co2}<span className="text-2xl ml-2">kgCO₂</span>
+                                        {impact.co2}<span className="text-2xl ml-2">gCO₂</span>
                                     </div>
                                 </div>
                             </div>
@@ -128,6 +128,27 @@
                                     <span className="block text-sm font-medium">무게</span>
                                     <span className="text-lg">{latestResult.weight}g</span>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">분류 이미지</h3>
+                            <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden bg-gray-100">
+                                {latestResult.image_id ? (
+                                    <img
+                                        src={`/api/images/${latestResult.image_id}`}
+                                        alt="분류된 아이템"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            e.target.src = "/api/placeholder/400/300";
+                                            e.target.alt = "이미지를 불러올 수 없습니다";
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-gray-400">
+                                        이미지가 없습니다
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
